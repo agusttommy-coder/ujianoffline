@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Ujian Lokal Anti-Contek</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; padding: 20px; text-align: center; }
+        .container { max-width: 600px; background: white; padding: 30px; margin: auto; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        input, button { width: 100%; padding: 12px; margin: 10px 0; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; font-size: 16px; }
+        button { background-color: #28a745; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background-color: #218838; }
+        .hidden { display: none; }
+        #error-screen { background-color: #dc3545; color: white; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; padding: 20px; box-sizing: border-box; }
+        .options { text-align: left; margin: 20px 0; }
+        .option-item { margin: 10px 0; }
+    </style>
+</head>
+<body>
+
+    <!-- SCREEN 1: LOGIN & TOKEN -->
+    <div id="login-screen" class="container">
+        <h2>Ujian Online Sekolah</h2>
+        <p>Silakan matikan internet Anda sebelum memasukkan token.</p>
+        <input type="text" id="student-name" placeholder="Nama Lengkap Siswa" required>
+        <input type="text" id="exam-token" placeholder="Masukkan Token Ujian" required>
+        <button onclick="startExam()">Mulai Ujian</button>
+    </div>
+
+    <!-- SCREEN 2: HALAMAN SOAL -->
+    <div id="exam-screen" class="container hidden">
+        <h3 id="question-text">Memuat soal...</h3>
+        <div class="options" id="options-container"></div>
+        <button onclick="nextQuestion()">Soal Berikutnya</button>
+    </div>
+
+    <!-- SCREEN 3: HALAMAN SELESAI (NILAI) -->
+    <div id="result-screen" class="container hidden">
+        <h2>Ujian Selesai!</h2>
+        <p id="student-summary"></p>
+        <h1 id="final-score" style="color: #28a745; font-size: 48px;">0</h1>
+        <p style="color: #6c757d;">Laporkan nilai ini kepada guru/pengawas kelas Anda.</p>
+    </div>
+
+    <!-- SCREEN 4: LAYAR ERROR (ANTI-CONTEK) -->
+    <div id="error-screen" class="hidden">
+        <h1>KECURANGAN TERDETEKSI! ❌</h1>
+        <p style="font-size: 20px; max-width: 500px;">Aplikasi mendeteksi HP/Laptop Anda terhubung ke internet. Anda dilarang membuka Google selama ujian!</p>
+        <p style="font-weight: bold; margin-top: 20px;">MATIKAN WI-FI / PAKET DATA ANDA UNTUK MELANJUTKAN.</p>
+    </div>
+
+    <script>
+        // PENGATURAN TOKEN & SOAL (Bisa Anda ubah sesuai kebutuhan)
+        const TOKEN_RAHASIA = "UJIAN2026"; 
+        const DAFTAR_SOAL = [
+            { q: "Siapakah Presiden pertama Indonesia?", a: ["Soeharto", "Soekarno", "B.J. Habibie", "Gus Dur"], correct: 1 },
+            { q: "Berapakah hasil dari 5 + 5 * 2?", a: ["20", "15", "25", "10"], correct: 1 },
+            { q: "Apa ibu kota negara Indonesia?", a: ["Surabaya", "Bandung", "Jakarta", "Medan"], correct: 2 }
+        ];
+
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let studentName = "";
+
+        // FUNGSI UTAMA: PENGAWAS JARINGAN (ANTI-CONTEK)
+        function checkNetwork() {
+            if (navigator.onLine) {
+                // Jika internet menyala, paksa munculkan layar error merah
+                document.getElementById('error-screen').classList.remove('hidden');
+            } else {
+                // Jika internet mati, sembunyikan layar error
+                document.getElementById('error-screen').classList.add('hidden');
+            }
+        }
+
+        // Jalankan pengawas jaringan setiap 1 detik secara otomatis
+        setInterval(checkNetwork, 1000);
+
+        // Fungsi ketika tombol "Mulai Ujian" diklik
+        function startExam() {
+            studentName = document.getElementById('student-name').value;
+            const enteredToken = document.getElementById('exam-token').value;
+
+            if (!studentName) {
+                alert("Nama siswa tidak boleh kosong!");
+                return;
+            }
+
+            if (enteredToken !== TOKEN_RAHASIA) {
+                alert("Token ujian salah! Silakan tanyakan kepada pengawas.");
+                return;
+            }
+
+            if (navigator.onLine) {
+                alert("Internet Anda masih aktif! Matikan Wi-Fi atau Paket Data terlebih dahulu.");
+                return;
+            }
+
+            // Masuk ke halaman soal jika semua syarat lolos
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('exam-screen').classList.remove('hidden');
+            showQuestion();
+        }
+
+        // Fungsi menampilkan soal
+        function showQuestion() {
+            const currentQuestion = DAFTAR_SOAL[currentQuestionIndex];
+            document.getElementById('question-text').innerText = `${currentQuestionIndex + 1}. ${currentQuestion.q}`;
+            
+            const optionsContainer = document.getElementById('options-container');
+            optionsContainer.innerHTML = "";
+
+            currentQuestion.a.forEach((option, index) => {
+                optionsContainer.innerHTML += `
+                    <div class="option-item">
+                        <input type="radio" name="answer" id="opt-${index}" value="${index}">
+                        <label for="opt-${index}">${option}</label>
+                    </div>
+                `;
+            });
+        }
+
+        // Fungsi tombol "Soal Berikutnya"
+        function nextQuestion() {
+            const selectedOption = document.querySelector('input[name="answer"]:checked');
+            if (!selectedOption) {
+                alert("Silakan pilih jawaban terlebih dahulu!");
+                return;
+            }
+
+            // Cek apakah jawaban benar
+            const answerIndex = parseInt(selectedOption.value);
+            if (answerIndex === DAFTAR_SOAL[currentQuestionIndex].correct) {
+                score++;
+            }
+
+            currentQuestionIndex++;
+
+            if (currentQuestionIndex < DAFTAR_SOAL.length) {
+                showQuestion();
+            } else {
+                finishExam();
+            }
+        }
+
+        // Fungsi saat ujian selesai
+        function finishExam() {
+            document.getElementById('exam-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.remove('hidden');
+
+            // Hitung nilai akhir skala 100
+            const finalScore = Math.round((score / DAFTAR_SOAL.length) * 100);
+            
+            document.getElementById('student-summary').innerText = `Terima kasih ${studentName}, Anda telah menyelesaikan kuis.`;
+            document.getElementById('final-score').innerText = finalScore;
+        }
+    </script>
+</body>
+</html>
